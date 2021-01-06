@@ -6,24 +6,90 @@ python export_graph.py --model pretrained/apple2orange.pb \
                        --image_size 256
 """
 
+#--model models/Hazy2GT_outdoor.pb --input data/outdoor/41.png --output results/outdoor/41_output.png --image_size 512
+
 import tensorflow as tf
 import os
+import glob
+import numpy as np
+import cv2
 from model import CycleGAN
+from skimage.measure import compare_ssim
+from skimage.measure import compare_mse
+from skimage.measure import compare_nrmse
 import utils
 
 FLAGS = tf.flags.FLAGS
 
-tf.flags.DEFINE_string('model', '', 'model path (.pb)')
-tf.flags.DEFINE_string('input', 'input_sample.jpg', 'input image path (.jpg)')
-tf.flags.DEFINE_string('output', 'output_sample.jpg', 'output image path (.jpg)')
+tf.flags.DEFINE_string('model', 'models/Hazy2GT_outdoor.pb', 'model path (.pb)')
+tf.flags.DEFINE_string('input', 'data/outdoor/frame_49758.png', 'input image path (.jpg)')
+tf.flags.DEFINE_string('output', 'results/outdoor/frame_49758.png', 'output image path (.jpg)')
 tf.flags.DEFINE_integer('image_size', '256', 'image size, default: 256')
 
+def benchmark_reside():
+  HAZY_PATH = "E:/Hazy Dataset Benchmark/RESIDE-Unannotated/"
+  SAVE_PATH = "results_reside/"
+  hazy_list = glob.glob(HAZY_PATH + "*.jpeg")
 
-def inference():
+  #perform inference
+  for i in range(len(hazy_list)):
+    inference(hazy_list[i], SAVE_PATH)
+
+
+
+def benchmark():
+  HAZY_PATH= "E:/Hazy Dataset Benchmark/I-HAZE/hazy/"
+  GT_PATH = "E:/Hazy Dataset Benchmark/I-HAZE/GT/"
+  SAVE_PATH = "results/"
+  BENCHMARK_PATH = "results/metrics.txt"
+  hazy_list = []
+  gt_list = []
+  result_list = []
+
+  for (root, dirs, files) in os.walk(HAZY_PATH):
+    for f in files:
+      file_name = os.path.join(root, f)
+      hazy_list.append(file_name)
+
+  for (root, dirs, files) in os.walk(GT_PATH):
+    for f in files:
+      file_name = os.path.join(root, f)
+      gt_list.append(file_name)
+
+  #perform inference
+  # for i in range(len(hazy_list)):
+  #   inference(hazy_list[i], SAVE_PATH)
+
+  #measure performance
+  result_list = glob.glob(SAVE_PATH + "*.jpg")
+  # for (root, dirs, files) in os.walk(SAVE_PATH):
+  #   for f in files:
+  #     file_name = os.path.join(root, f)
+  #     result_list.append(file_name)
+
+  #check SSIM
+  print(result_list)
+  average_SSIM = 0.0
+  with open(BENCHMARK_PATH, "w") as f:
+    for i in range(len(result_list)):
+      input_name = result_list[i].split('\\')[0]
+      result_img = cv2.imread(result_list[i])
+      gt_img = cv2.imread(gt_list[i])
+      gt_img = cv2.resize(gt_img, (256, 256), interpolation = cv2.INTER_CUBIC)
+
+      SSIM = np.round(compare_ssim(result_img, gt_img, multichannel=True),4)
+      print("SSIM of " +input_name+ " : ", SSIM, file = f)
+      average_SSIM += SSIM
+
+    average_SSIM = average_SSIM / len(result_list) * 1.0
+    print("Average SSIM: ", average_SSIM, file = f)
+
+def inference(input_img_path, result_save_path):
   graph = tf.Graph()
 
   with graph.as_default():
-    with tf.gfile.FastGFile(FLAGS.input, 'rb') as f:
+    #with tf.gfile.FastGFile(FLAGS.input, 'rb') as f:
+    with tf.gfile.FastGFile(input_img_path, 'rb') as f:
       image_data = f.read()
       input_image = tf.image.decode_jpeg(image_data, channels=3)
       input_image = tf.image.resize_images(input_image, size=(FLAGS.image_size, FLAGS.image_size))
@@ -38,11 +104,15 @@ def inference():
                           name='output')
   with tf.Session(graph=graph) as sess:
     generated = output_image.eval()
-    with open(FLAGS.output, 'wb') as f:
+    input_name = input_img_path.split('\\')[1]
+    #with open(FLAGS.output, 'wb') as f:
+    with open(result_save_path + input_name, 'wb') as f:
       f.write(generated)
 
 def main(unused_argv):
-  inference()
+  #inference(FLAGS.input, FLAGS.output)
+  #benchmark()
+  benchmark_reside()
 
 if __name__ == '__main__':
   tf.app.run()
