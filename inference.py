@@ -35,6 +35,15 @@ def benchmark_reside():
   for i in range(len(hazy_list)):
     inference(hazy_list[i], SAVE_PATH)
 
+def benchmark_ohaze():
+  HAZY_PATH = "E:/Hazy Dataset Benchmark/O-HAZE/hazy/"
+  SAVE_PATH = "results_ohaze/"
+  hazy_list = glob.glob(HAZY_PATH + "*.jpg")
+
+  #perform inference
+  for i in range(len(hazy_list)):
+    inference(hazy_list[i], SAVE_PATH)
+
 
 
 def benchmark():
@@ -112,7 +121,8 @@ def inference(input_img_path, result_save_path):
 def main(unused_argv):
   #inference(FLAGS.input, FLAGS.output)
   #benchmark()
-  benchmark_reside()
+  #benchmark_reside()
+  benchmark_ohaze()
 
 if __name__ == '__main__':
   tf.app.run()
