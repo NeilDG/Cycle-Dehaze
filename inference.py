@@ -8,15 +8,15 @@ python export_graph.py --model pretrained/apple2orange.pb \
 
 #--model models/Hazy2GT_outdoor.pb --input data/outdoor/41.png --output results/outdoor/41_output.png --image_size 512
 
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 import os
 import glob
 import numpy as np
 import cv2
 from model import CycleGAN
-from skimage.measure import compare_ssim
-from skimage.measure import compare_mse
-from skimage.measure import compare_nrmse
+from skimage.metrics import structural_similarity
+from skimage.metrics import mean_squared_error
+from skimage.metrics import normalized_root_mse
 import utils
 
 FLAGS = tf.flags.FLAGS
@@ -25,6 +25,15 @@ tf.flags.DEFINE_string('model', 'models/Hazy2GT_outdoor.pb', 'model path (.pb)')
 tf.flags.DEFINE_string('input', 'data/outdoor/frame_49758.png', 'input image path (.jpg)')
 tf.flags.DEFINE_string('output', 'results/outdoor/frame_49758.png', 'output image path (.jpg)')
 tf.flags.DEFINE_integer('image_size', '256', 'image size, default: 256')
+
+def benchmark_ots():
+  HAZY_PATH = "D:/Datasets/OTS_BETA/haze/"
+  SAVE_PATH = "results_reside/"
+  hazy_list = glob.glob(HAZY_PATH + "*0.95_0.2.jpg") #specify atmosphere intensity
+
+  #perform inference
+  for i in range(1934, len(hazy_list)):
+    inference(hazy_list[i], SAVE_PATH)
 
 def benchmark_reside():
   HAZY_PATH = "E:/Hazy Dataset Benchmark/RESIDE-Unannotated/"
@@ -41,6 +50,16 @@ def benchmark_ohaze():
   hazy_list = glob.glob(HAZY_PATH + "*.jpg")
 
   #perform inference
+  for i in range(len(hazy_list)):
+    inference(hazy_list[i], SAVE_PATH)
+
+
+def benchmark_ihaze():
+  HAZY_PATH = "E:/Hazy Dataset Benchmark/I-HAZE/hazy/"
+  SAVE_PATH = "results_ihaze/"
+  hazy_list = glob.glob(HAZY_PATH + "*.jpg")
+
+  # perform inference
   for i in range(len(hazy_list)):
     inference(hazy_list[i], SAVE_PATH)
 
@@ -86,7 +105,7 @@ def benchmark():
       gt_img = cv2.imread(gt_list[i])
       gt_img = cv2.resize(gt_img, (256, 256), interpolation = cv2.INTER_CUBIC)
 
-      SSIM = np.round(compare_ssim(result_img, gt_img, multichannel=True),4)
+      SSIM = np.round(structural_similarity(result_img, gt_img, multichannel=True),4)
       print("SSIM of " +input_name+ " : ", SSIM, file = f)
       average_SSIM += SSIM
 
@@ -95,6 +114,7 @@ def benchmark():
 
 def inference(input_img_path, result_save_path):
   graph = tf.Graph()
+  #print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('GPU')))
 
   with graph.as_default():
     #with tf.gfile.FastGFile(FLAGS.input, 'rb') as f:
@@ -122,7 +142,9 @@ def main(unused_argv):
   #inference(FLAGS.input, FLAGS.output)
   #benchmark()
   #benchmark_reside()
-  benchmark_ohaze()
+  #benchmark_ohaze()
+  #benchmark_ots()
+  benchmark_ihaze()
 
 if __name__ == '__main__':
   tf.app.run()
